@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+from utils import sound
+from utils.brick import TouchSensor, wait_ready_sensors, EV3ColorSensor, reset_brick
+from utils.brick import Motor
+from time import sleep
+import time
+ 
+# Associating ports
+S = Motor("A") # Small pusher
+B = Motor("B") # Big pusher
+shaker = Motor("C") #Shaker 
+button1 = TouchSensor(1) # 1 input
+button2 = TouchSensor(2) # 0 input
+color_sensor = EV3ColorSensor(3)
+S.reset_encoder()
+B.reset_encoder()
+S.set_limits(dps = 300) 
+B.set_limits(dps = 300)
+sleepy = [8,6,3,2,2]
+dtod = (360/12.54)
+
+#Sound
+SOUND = sound.Sound(duration = 0.6, pitch=480.00, volume= 96)
+#Input
+oneDlist = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+ 
+myList =  [[0,0,0,0,0],
+           [0,0,0,0,0],
+           [0,0,0,0,0],
+           [0,0,0,0,0],
+           [0,0,0,0,0]]    # <--- row pusher
+  
+ # column pusher ^^^^^^
+ 
+# Parameters
+#y = [23*dtod, 19*dtod, 15*dtod, 11*dtod, 7*dtod]     # Distances to each row               
+#x = [19.2*dtod, 15.2*dtod, 11.2*dtod, 7.2*dtod, 0]     # Distances to each column
+
+#y = [20*dtod, 15*dtod, 12*dtod, 7*dtod, 4*dtod]     # Distances to each row               
+#x = [18*dtod, 15.2*dtod, 11.2*dtod, 7.2*dtod, 0]     # Distances to each column
+
+# y = [27*dtod, 23*dtod, 19*dtod, 15*dtod, 11*dtod]     # Distances for narrow               
+# x = [17*dtod, 13*dtod, 8.5*dtod, 5*dtod, 0]     # Distances for wide
+ 
+y = [26.5*dtod, 23*dtod, 19*dtod, 15*dtod, 11*dtod]     # Distances for narrow               
+x = [19*dtod, 14.3*dtod, 9.6*dtod, 5.5*dtod, 0]     # Distances for wide
+ 
+# def play_sound():
+#     SOUND.play()
+#     SOUND.wait_done()
+
+   # Resetting motors intial positions to zero degrees
+S.reset_encoder()
+B.reset_encoder()
+
+
+# def userButton():
+#    if button1.is_pressed():
+#        print("pressed")
+#        mosaic()
+#        print("done")
+ 
+# Method for shaker and detector
+def fifteenCubeDetector():
+    #wait_ready_sensors() #making sure sensors are ready
+    
+    while (True):
+        shaker.set_power(100)
+        shaker.set_dps(90)
+        sleep(4)
+        shaker.set_dps(0)
+        shaker.set_power(0)
+        sleep(1) #sleep 0.5 seconds so that not too many data points are collected
+        colorData = color_sensor.get_value() #getting value from color sensor
+        red = colorData[0]
+        green = colorData[1]
+        blue = colorData[2]
+ 
+        if(red < 40 and green < 41 and blue < 29): #if values are under these, then the color sensor is detecting white
+            print("white background detected")
+        else:
+            print("15 cubes detected- part 1") #if color sensor is not detecting white, then there is cube. T
+            # We shake the cube dropper once more in case the cube detected is a cube that is stuck at the 15th cube position
+            shaker.set_power(100)
+            shaker.set_dps(90)
+            sleep(4)
+            shaker.set_dps(0)
+            shaker.set_power(0)
+            sleep(1)
+
+            colorData = color_sensor.get_value() #getting value from color sensor
+            red = colorData[0]
+            green = colorData[1]
+            blue = colorData[2]
+            if(red < 40 and green < 41 and blue < 29): #same if statement again to make sure it wasn't a cube sliding past
+                print("white background detected")
+            else:
+                print("15 cubes detected- part 2") #if a cube was detected twice 0.5 seconds apart, then there are 15 cubes in the system 
+                #shaker.set_dps(0) #to stop the shaker once all cubes have been inputted
+                break
+
+
+def mosaic():
+    # Sound to indicate we've finished the loading phase
+   SOUND.play()
+   SOUND.wait_done()
+
+   # Resetting motors intial positions to zero degrees
+   S.reset_encoder()
+   B.reset_encoder()
+  
+   # While loop for taking in user inputs
+   count = 0
+   numberOfCubes = 0
+   while numberOfCubes<15: # Stops user inputs at 15 cubes
+       if button1.is_pressed(): # insert cube
+           oneDlist.insert(count,1)
+           count = count + 1
+           numberOfCubes = numberOfCubes + 1
+           print("1 inputed")
+           print(count)
+           time.sleep(0.3)
+       if button2.is_pressed(): # pass
+           count = count+1
+           print("Pass")
+           print(count)
+           time.sleep(0.3)
+    
+   # Converting user inputs into 2D array
+   # This allows us to use Lili's method for receiving user inputs and Michael's method for placing the cubes
+   
+   for m in range(5):
+       for n in range(5):
+            myList[m][n] = oneDlist[(m*5)+n]
+ 
+   # For loops to iterate through the 2D array and place cubes as inputed
+   for i in range(5): # columns
+       S.set_position(-10)
+       time.sleep(1)
+       S.set_position(15)
+       time.sleep(1.5)
+       B.set_position(-10)
+       time.sleep(1)
+       B.set_position(15)
+       time.sleep(1.5)
+    
+       for j in range(5): # rows
+           # narrow PUSHER
+           if myList[i][j] == 1: # Move the motor to the row position and back if we see a 1
+               S.reset_encoder()
+               time.sleep(0.1)
+               S.set_position(-y[j])
+               time.sleep(sleepy[j]) 
+              # print(S.get_position())
+               S.set_position(y[j]+5)
+               time.sleep(sleepy[j]) 
+               #S.reset_encoder()
+               time.sleep(0.2)
+             #  print(S.get_position())
+               print("1 block lined up")
+           # column PUSHER
+       if myList[i] != [0,0,0,0,0]:
+           B.reset_encoder()
+           #print(B.get_position())
+           time.sleep(0.3)
+           B.set_position(-x[i])
+           #print(B.get_position())
+           time.sleep(sleepy[i]) # why so long
+           B.set_position(x[i]+5)
+           time.sleep(sleepy[i]) # why so long
+          # B.reset_encoder()
+           time.sleep(0.2)
+           #print(B.get_position())
+           #time.sleep(1) # why so long
+           print("Blocks for this column have been placed")
+ 
+   print("Mosaic made.... I <3 Team 14... aka The Whole Apple ")
+       # At this point the mosaic has been made and the program will exit
+ 
+              
+ 
+if __name__=='__main__':
+   #play_sound()
+    #wait_ready_sensors() # Note: Touch sensors actually have no initialization time
+    try:                  # set to true to see output of sensor initialization: wait_ready_sensors(True)
+        fifteenCubeDetector()
+        mosaic()
+        B.set_power(0)
+        S.set_power(0)
+        B.reset_encoder()
+        S.reset_encoder()
+        reset_brick()
+    #userButton()
+    except KeyboardInterrupt:
+        B.set_power(0)
+        S.set_power(0)
+        B.reset_encoder()
+        S.reset_encoder()
+        reset_brick()
+ 
+ 
